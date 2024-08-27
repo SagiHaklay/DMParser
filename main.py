@@ -1,11 +1,11 @@
 from earley import earley, CFG, CFGRule
 
-g = CFG("S")
-g.rules.append(CFGRule("S", ["NP", "VP"]))
-g.rules.append(CFGRule("NP", ["John"], True))
-g.rules.append(CFGRule("NP", ["English"], True))
-g.rules.append(CFGRule("VP", ["V", "NP"]))
-g.rules.append(CFGRule("V", ["speaks"], True))
+g = CFG("S", ["John", "speaks", "English"])
+g.add_rule("S", ["NP", "VP"])
+g.add_rule("NP", ["John"])
+g.add_rule("NP", ["English"])
+g.add_rule("VP", ["V", "NP"])
+g.add_rule("V", ["speaks"])
 result, table = earley(["John", "speaks", "English"], g)
 print("result:", result)
 print(table)

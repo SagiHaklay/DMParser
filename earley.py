@@ -10,12 +10,16 @@ class CFGRule:
     
 
 class CFG:
-    def __init__(self, start_var) -> None:
+    def __init__(self, start_var, terminals) -> None:
         self.rules = []
         self.start_var = start_var
+        self.terminals = terminals
 
     def terminal_rules(self):
         return [rule for rule in self.rules if rule.is_terminal]
+    
+    def add_rule(self, left, right):
+        self.rules.append(CFGRule(left, right, len(right) == 1 and right[0] in self.terminals))
     
 
 class TableEntry:
