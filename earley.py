@@ -1,10 +1,11 @@
 START = "START"
 
 class CFGRule:
-    def __init__(self, left, right, is_terminal = False) -> None:
+    def __init__(self, left, right, is_terminal = False, condition = None) -> None:
         self.left = left
         self.right = right
         self.is_terminal = is_terminal
+        self.condition = condition
 
     
     
@@ -14,12 +15,15 @@ class CFG:
         self.rules = []
         self.start_var = start_var
         self.terminals = terminals
+        self.nullables = []
 
     def terminal_rules(self):
         return [rule for rule in self.rules if rule.is_terminal]
     
-    def add_rule(self, left, right):
-        self.rules.append(CFGRule(left, right, len(right) == 1 and right[0] in self.terminals))
+    def add_rule(self, left, right, is_terminal = False, cond = None):
+        self.rules.append(CFGRule(left, right, is_terminal or (len(right) == 1 and right[0] in self.terminals), cond))
+        if len(right) == 1 and (right[0] == "" or right[0] in self.nullables):
+            self.nullables.append(left)
     
 
 class TableEntry:
@@ -39,6 +43,8 @@ class TableEntry:
     
     def predictor(self, col, g: CFG, table):
         table[col] += [TableEntry(rule, col) for rule in g.rules if not rule.is_terminal and rule.left == self.next_token()]
+        if self.next_token() in g.nullables:
+            table[col] += [self.get_completed_entry()]
 
     def get_completed_entry(self):
         return TableEntry(self.rule, self.start_col, self.completion_idx + 1)
