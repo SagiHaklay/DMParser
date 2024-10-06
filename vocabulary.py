@@ -42,7 +42,10 @@ class Vocabulary:
             return self.vocabulary_items[key]
         
     def phonological_values(self):
-        return {self.vocabulary_items[k].values for k in self.vocabulary_items}
+        result = set()
+        for k in self.vocabulary_items:
+            result = result.union(self.vocabulary_items[k].values)
+        return result
 
 
         
