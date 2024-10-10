@@ -69,7 +69,7 @@ class Table:
         self.columns[col] += entries
 
     def predictor(self, col, entry: TableEntry, g: CFG):
-        self.add_entries(col, [TableEntry(rule, col) for rule in g.rules if entry.incomplete() and rule.left == entry.next_token() and len(rule.right[0]) > 0])
+        self.add_entries(col, [TableEntry(rule, col) for rule in g.rules if rule.left == entry.next_token() and len(rule.right[0]) > 0 and rule.is_terminal == False])
         if entry.next_token() in g.nullables:
             self.add_entries(col, [entry.get_completed_entry()])
     
@@ -88,7 +88,7 @@ def earley(tokens, g: CFG):
     #table = [[] for i in range(t + 1)]
     table = Table(t)
     #table[0].append(TableEntry(CFGRule(START, g.start_var), 0))
-    table.add_entries(0, [TableEntry(CFGRule(START, g.start_var), 0)])
+    table.add_entries(0, [TableEntry(CFGRule(START, [g.start_var]), 0)])
     terminal_rules = g.terminal_rules()
     for i in range(t + 1):
         if i > 0:
