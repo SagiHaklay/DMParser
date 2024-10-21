@@ -27,16 +27,45 @@ class CFG:
 
     def get_terminals(self):
         return {rule.right[0] for rule in self.terminal_rules()}
-    
+
+
+class TreeNode:
+    def __init__(self, value) -> None:
+        self.value = value
+        self.children = []
+        self.parent = None
+        self.condition = None
+
+    def __repr__(self) -> str:
+        return repr(self.value)
+
+    def add_subtree(self, subtree, condition=None):
+        subtree.parent = self
+        subtree.condition = condition
+        self.children.append(subtree)
+
+    def print_tree(self):
+        print(self.value)
+        nodes = [self]
+        while len(nodes) > 0:
+            node_children = [node.children for node in nodes if len(node.children) > 0]
+            print(" ".join(map(repr, node_children)))
+            nodes = []
+            for children in node_children:
+                nodes += children
+            
+
+
 
 class TableEntry:
-    def __init__(self, rule: CFGRule, start_col, idx = 0) -> None:
+    def __init__(self, rule: CFGRule, start_col, idx = 0, completing_entries = []) -> None:
         self.rule = rule
         self.completion_idx = idx
         self.start_col = start_col
+        self.completing_entries = completing_entries
 
     def __repr__(self) -> str:
-        return f'{self.rule.left} -> {"".join(self.rule.right[:self.completion_idx])}.{"".join(self.rule.right[self.completion_idx:])}[{self.start_col}]'
+        return f'{self.rule.left} -> {" ".join(self.rule.right[:self.completion_idx])}.{" ".join(self.rule.right[self.completion_idx:])}[{self.start_col}]'
 
     def next_token(self):
         return self.rule.right[self.completion_idx]
@@ -44,17 +73,16 @@ class TableEntry:
     def incomplete(self):
         return self.completion_idx < len(self.rule.right)
     
-    def predictor(self, col, g: CFG, table):
-        table[col] += [TableEntry(rule, col) for rule in g.rules if self.incomplete() and rule.left == self.next_token()]
-        if self.next_token() in g.nullables:
-            table[col] += [self.get_completed_entry()]
-
-    def get_completed_entry(self):
-        return TableEntry(self.rule, self.start_col, self.completion_idx + 1)
-
-    def completer(self, col, table):
-        to_complete = [entry for entry in table[self.start_col] if entry.incomplete() and entry.next_token() == self.rule.left]
-        table[col] += [entry.get_completed_entry() for entry in to_complete]
+    def get_completed_entry(self, completing_entry):
+        return TableEntry(self.rule, self.start_col, self.completion_idx + 1, self.completing_entries + [completing_entry])
+    
+    def get_tree(self) -> TreeNode:
+        tree = TreeNode(self.rule.left)
+        if len(self.completing_entries) == 0 and self.rule.left != '':
+            tree.add_subtree(TreeNode(self.rule.right[0]), self.rule.condition)
+        for entry in self.completing_entries:
+            tree.add_subtree(entry.get_tree())
+        return tree
 
 
 class Table:
@@ -63,7 +91,9 @@ class Table:
         self.columns = [[] for i in range(t + 1)]
 
     def __repr__(self) -> str:
-        return repr(self.columns)
+        #max_row_length = max(map(len, self.columns))
+        #return "\n".join([" ".join([repr(col[i]) for col in self.columns if i < len(col)]) for i in range(max_row_length)])
+        return "\n".join([repr(col) for col in self.columns])
 
     def add_entries(self, col, entries):
         self.columns[col] += entries
@@ -71,16 +101,25 @@ class Table:
     def predictor(self, col, entry: TableEntry, g: CFG):
         self.add_entries(col, [TableEntry(rule, col) for rule in g.rules if rule.left == entry.next_token() and len(rule.right[0]) > 0 and rule.is_terminal == False])
         if entry.next_token() in g.nullables:
-            self.add_entries(col, [entry.get_completed_entry()])
+            null_entry = TableEntry(CFGRule('', ['']), entry.start_col, 1)
+            self.add_entries(col, [entry.get_completed_entry(null_entry)])
     
     def completer(self, col, complete_entry: TableEntry):
         to_complete = [entry for entry in self.columns[complete_entry.start_col] if entry.incomplete() and entry.next_token() == complete_entry.rule.left]
-        self.add_entries(col, [entry.get_completed_entry() for entry in to_complete])
+        self.add_entries(col, [entry.get_completed_entry(complete_entry) for entry in to_complete])
 
-    def get_last_entry(self):
+    def get_last_entry(self) -> TableEntry | None:
         if len(self.columns[self.length]) == 0:
             return None
         return self.columns[self.length][-1]
+    
+    def get_tree(self) -> TreeNode | None:
+        last_entry = self.get_last_entry()
+        if last_entry is None or last_entry.incomplete():
+            return None
+        return last_entry.completing_entries[0].get_tree()
+
+
 
 
 def earley(tokens, g: CFG):

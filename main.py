@@ -38,3 +38,6 @@ parser = DMParser(syntax, vocabulary)
 result, table = parser.parse(["sag", "-te", "-t"])
 print("result:", result)
 print(table)
+tree = table.get_tree()
+if tree is not None:
+    tree.print_tree()
