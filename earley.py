@@ -1,3 +1,6 @@
+import numpy as np
+import pandas as pd
+
 START = "START"
 
 class CFGRule:
@@ -83,6 +86,15 @@ class TableEntry:
         for entry in self.completing_entries:
             tree.add_subtree(entry.get_tree())
         return tree
+    
+    def get_edges(self) -> list:
+        if len(self.completing_entries) == 0 and self.rule.left != '':
+            return [(self.rule.left, self.rule.right[0], self.rule.condition)]
+        result = []
+        for entry in self.completing_entries:
+            result += entry.get_edges()
+            result += [(self.rule.left, entry.rule.left, None)]
+        return result
 
 
 class Table:
@@ -91,9 +103,9 @@ class Table:
         self.columns = [[] for i in range(t + 1)]
 
     def __repr__(self) -> str:
-        #max_row_length = max(map(len, self.columns))
-        #return "\n".join([" ".join([repr(col[i]) for col in self.columns if i < len(col)]) for i in range(max_row_length)])
-        return "\n".join([repr(col) for col in self.columns])
+        max_row_length = max(map(len, self.columns))
+        return repr(pd.DataFrame(np.array([[repr(col[i]) if i < len(col) else "-" for col in self.columns] for i in range(max_row_length)])))
+        #return "\n".join([repr(col) for col in self.columns])
 
     def add_entries(self, col, entries):
         self.columns[col] += entries
@@ -118,6 +130,12 @@ class Table:
         if last_entry is None or last_entry.incomplete():
             return None
         return last_entry.completing_entries[0].get_tree()
+    
+    def get_edges(self):
+        last_entry = self.get_last_entry()
+        if last_entry is None or last_entry.incomplete():
+            return None
+        return last_entry.completing_entries[0].get_edges()
 
 
 
