@@ -1,8 +1,9 @@
 from earley import CFG
 from vocabulary import Vocabulary, FeatureEncoding
 from parser import DMParser
-import matplotlib.pyplot as plt
-import igraph as ig
+from anytree import RenderTree
+#import matplotlib.pyplot as plt
+#import igraph as ig
 
 features = ["v", "sagen", "1p", "2p", "3p", "singular", "plural", "past"]
 encoder = FeatureEncoding(features)
@@ -37,27 +38,11 @@ vocabulary.add_item({"2p"}, [""], ["-st"])
 vocabulary.add_item({"v"}, [""], [""])
 vocabulary.add_item(set(), [""], [""])
 parser = DMParser(syntax, vocabulary)
-result, table = parser.parse(["sag", "-te", "-t"])
+result, table = parser.parse(["sag", "-te", "-st"])
 print("result:", result)
 print(table)
-#tree = table.get_tree()
-#if tree is not None:
-#    tree.print_tree()
-edges = table.get_edges()
-g = ig.Graph.TupleList(edges, edge_attrs='condition')
-fig, ax = plt.subplots(figsize=(5,5))
-ig.plot(
-    g,
-    target=ax,
-    layout="circle", # print nodes in a circular layout
-    vertex_size=30,
-    vertex_color="steelblue",
-    vertex_frame_width=4.0,
-    vertex_frame_color="white",
-    vertex_label=g.vs["name"],
-    vertex_label_size=7.0,
-    edge_width=1,
-    edge_color="#AAA"
-)
 
-plt.show()
+if result:
+    tree = table.get_tree(encoder)
+    for pre, _, node in RenderTree(tree):
+        print("%s%s" % (pre, node.tag))

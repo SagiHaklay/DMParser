@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from anytree import AnyNode
+from vocabulary import FeatureEncoding
 
 START = "START"
 
@@ -18,15 +20,15 @@ class CFG:
         self.rules = []
         self.start_var = start_var
         self.terminals = terminals
-        self.nullables = []
-
+        self.nullables = {}
     def terminal_rules(self):
         return [rule for rule in self.rules if rule.is_terminal]
     
     def add_rule(self, left, right, is_terminal = False, cond = None):
-        self.rules.append(CFGRule(left, right, is_terminal or (len(right) == 1 and right[0] in self.terminals), cond))
+        rule = CFGRule(left, right, is_terminal or (len(right) == 1 and right[0] in self.terminals), cond)
+        self.rules.append(rule)
         if len(right) == 1 and (right[0] == "" or right[0] in self.nullables):
-            self.nullables.append(left)
+            self.nullables[left] = rule
 
     def get_terminals(self):
         return {rule.right[0] for rule in self.terminal_rules()}
@@ -79,21 +81,20 @@ class TableEntry:
     def get_completed_entry(self, completing_entry):
         return TableEntry(self.rule, self.start_col, self.completion_idx + 1, self.completing_entries + [completing_entry])
     
-    def get_tree(self) -> TreeNode:
-        tree = TreeNode(self.rule.left)
-        if len(self.completing_entries) == 0 and self.rule.left != '':
-            tree.add_subtree(TreeNode(self.rule.right[0]), self.rule.condition)
-        for entry in self.completing_entries:
-            tree.add_subtree(entry.get_tree())
-        return tree
+    def get_tree(self, decoder: FeatureEncoding | None = None):
+        if len(self.completing_entries) == 0:
+            features = decoder.decode(self.rule.left) if decoder is not None else self.rule.left
+            return AnyNode(tag=features, condition=self.rule.condition)
+        children = [entry.get_tree(decoder) for entry in self.completing_entries]
+        return AnyNode(children=children, tag=self.rule.left)
     
     def get_edges(self) -> list:
-        if len(self.completing_entries) == 0 and self.rule.left != '':
-            return [(self.rule.left, self.rule.right[0], self.rule.condition)]
+        if len(self.completing_entries) == 0:
+            return []
         result = []
         for entry in self.completing_entries:
             result += entry.get_edges()
-            result += [(self.rule.left, entry.rule.left, None)]
+            result += [(self.rule.left, entry.rule.left, entry.rule.condition)]
         return result
 
 
@@ -113,7 +114,8 @@ class Table:
     def predictor(self, col, entry: TableEntry, g: CFG):
         self.add_entries(col, [TableEntry(rule, col) for rule in g.rules if rule.left == entry.next_token() and len(rule.right[0]) > 0 and rule.is_terminal == False])
         if entry.next_token() in g.nullables:
-            null_entry = TableEntry(CFGRule('', ['']), entry.start_col, 1)
+            rule = g.nullables[entry.next_token()]
+            null_entry = TableEntry(rule, entry.start_col, 1)
             self.add_entries(col, [entry.get_completed_entry(null_entry)])
     
     def completer(self, col, complete_entry: TableEntry):
@@ -125,11 +127,11 @@ class Table:
             return None
         return self.columns[self.length][-1]
     
-    def get_tree(self) -> TreeNode | None:
+    def get_tree(self, deocder=None):
         last_entry = self.get_last_entry()
         if last_entry is None or last_entry.incomplete():
             return None
-        return last_entry.completing_entries[0].get_tree()
+        return last_entry.completing_entries[0].get_tree(deocder)
     
     def get_edges(self):
         last_entry = self.get_last_entry()
