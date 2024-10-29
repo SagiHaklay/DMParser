@@ -86,7 +86,7 @@ class TableEntry:
             features = decoder.decode(self.rule.left) if decoder is not None else self.rule.left
             return AnyNode(tag=features, condition=self.rule.condition)
         children = [entry.get_tree(decoder) for entry in self.completing_entries]
-        return AnyNode(children=children, tag=self.rule.left)
+        return AnyNode(children=children, tag=self.rule.left, condition=self.rule.condition)
     
     def get_edges(self) -> list:
         if len(self.completing_entries) == 0:
@@ -127,6 +127,9 @@ class Table:
             return None
         return self.columns[self.length][-1]
     
+    def get_success_entries(self):
+        return [entry for entry in self.columns[self.length] if entry.rule.left == START]
+    
     def get_tree(self, deocder=None):
         last_entry = self.get_last_entry()
         if last_entry is None or last_entry.incomplete():
@@ -138,6 +141,10 @@ class Table:
         if last_entry is None or last_entry.incomplete():
             return None
         return last_entry.completing_entries[0].get_edges()
+    
+    def get_trees(self, decoder=None):
+        success_entries = self.get_success_entries()
+        return [entry.completing_entries[0].get_tree(decoder) for entry in success_entries]
 
 
 
@@ -162,8 +169,7 @@ def earley(tokens, g: CFG):
             else:
                #entry.completer(i, table)
                table.completer(i, entry)
-    last_entry = table.get_last_entry()
-    if last_entry is None:
-        return False, table
-    return last_entry.rule.left == START, table
+    #last_entry = table.get_last_entry()
+    success_entries = table.get_success_entries()
+    return len(success_entries) > 0, table
 
