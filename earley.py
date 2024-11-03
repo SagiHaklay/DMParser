@@ -97,6 +97,9 @@ class TableEntry:
             result += entry.get_edges()
             result += [(self.rule.left, entry.rule.left, entry.rule.condition)]
         return result
+    
+    def is_prediction(self, token):
+        return self.rule.left == token and self.completion_idx == 0
 
 
 class Table:
@@ -113,6 +116,8 @@ class Table:
         self.columns[col] += entries
 
     def predictor(self, col, entry: TableEntry, g: CFG):
+        if any([e.is_prediction(entry.next_token()) for e in self.columns[col]]):
+            return
         self.add_entries(col, [TableEntry(rule, col) for rule in g.rules if rule.left == entry.next_token() and len(rule.right[0]) > 0 and rule.is_terminal == False])
         if entry.next_token() in g.nullables:
             rule = g.nullables[entry.next_token()]
