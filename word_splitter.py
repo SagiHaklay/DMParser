@@ -1,14 +1,34 @@
-from igraph import Graph
+from igraph import Graph, plot
+import matplotlib.pyplot as plt
 
-edges = [[0, 1], [1, 2], [1, 3], [1, 3], [1, 3], [2, 3], [2, 3], [2, 3]]
-tokens = ['sag', 'te', 't', 'st', 'en', 't', 'st', 'n']
-accept = [False, True, True, True]
+class WordLattice:
+    def __init__(self) -> None:
+        self.edges = []
+        self.edge_tokens = []
+        self.vertex_num = 0
+
+    def add_edge(self, source, target, token):
+        self.edges.append((source, target))
+        self.edge_tokens.append(token)
+        self.vertex_num = max([source+1, target+1, self.vertex_num])
+
+    def to_graph(self):
+        return Graph(n=self.vertex_num, edges=self.edges, directed=True,
+                  edge_attrs={'token': self.edge_tokens})
+
+    def get_edges_by_target(self, target):
+        g = self.to_graph()
+        return g.vs[target].in_edges()
+    
+    def show(self):
+        g = self.to_graph()
+        fig, ax = plt.subplots(figsize=(5, 5))
+        plot(g, target=ax, layout="circle", edge_label=g.es['token'])
+        plt.show()
 
 class WordSplitter:
-    def __init__(self) -> None:
-        self.word_lattice = Graph(n=4, edges=edges, directed=True,
-                                  edge_attrs={'token': tokens},
-                                  vertex_attrs={'accept': accept})
+    def __init__(self, lattice) -> None:
+        self.word_lattice = lattice
         
     def split_word(self, word: str):
         v = self.word_lattice.vs[0]
@@ -28,5 +48,15 @@ class WordSplitter:
                     active_queue.append((target, next_idx, split + [token]))
         return valid_splits
     
-splitter = WordSplitter()
-print(splitter.split_word('sagten'))
+def create_word_lattice(phrase: str):
+    word_list = phrase.split()
+    lattice = WordLattice()
+    start = 0
+    for word in word_list:
+        word_len = len(word)
+        for i in range(word_len):
+            for j in range(i+1, word_len+1):
+                lattice.add_edge(start + i, start + j, word[i:j])
+        start += word_len
+    return lattice
+    

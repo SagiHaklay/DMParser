@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from anytree import AnyNode
 from vocabulary import FeatureEncoding
+from word_splitter import WordLattice
 
 START = "START"
 
@@ -115,7 +116,7 @@ class Table:
         self.add_entries(col, [TableEntry(rule, col) for rule in g.rules if rule.left == entry.next_token() and len(rule.right[0]) > 0 and rule.is_terminal == False])
         if entry.next_token() in g.nullables:
             rule = g.nullables[entry.next_token()]
-            null_entry = TableEntry(rule, entry.start_col, 1)
+            null_entry = TableEntry(rule, col, 1)
             self.add_entries(col, [entry.get_completed_entry(null_entry)])
     
     def completer(self, col, complete_entry: TableEntry):
@@ -173,3 +174,22 @@ def earley(tokens, g: CFG):
     success_entries = table.get_success_entries()
     return len(success_entries) > 0, table
 
+def earley_by_word_lattice(lattice: WordLattice, g: CFG):
+    t = lattice.vertex_num - 1
+    table = Table(t)
+    table.add_entries(0, [TableEntry(CFGRule(START, [g.start_var]), 0)])
+    terminal_rules = g.terminal_rules()
+    for i in range(t + 1):
+        if i > 0:
+            # add tokens from the in edges of vertex i with start column according to source
+            in_edges = lattice.get_edges_by_target(i)
+            for e in in_edges:
+                curr_token_rules = [rule for rule in terminal_rules if rule.right[0] == e['token']]
+                table.add_entries(i, [TableEntry(rule, e.source, 1) for rule in curr_token_rules])
+        for entry in table.columns[i]:
+            if entry.incomplete():
+               table.predictor(i, entry, g)
+            else:
+               table.completer(i, entry)
+    success_entries = table.get_success_entries()
+    return len(success_entries) > 0, table
