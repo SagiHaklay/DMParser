@@ -9,7 +9,7 @@ class DMParser:
         self.vocabulary = vocabulary
         self.dm_cfg = CFG(syntax.start_var, vocabulary.phonological_values())
         for rule in syntax.rules:
-            self.dm_cfg.add_rule(rule.left, rule.right)
+            self.dm_cfg.add_rule(rule.left, rule.right, cond=rule.condition)
         for terminal in syntax.get_terminals():
             vi = vocabulary.get_item(terminal)
             if vi is not None:
@@ -24,7 +24,7 @@ class DMParser:
         if earley_result == False:
             return False, table, valid_trees
         for tree in table.get_trees(self.vocabulary.encoding):
-            condition_nodes = [node for node in tree.leaves if node.condition != None]
+            condition_nodes = [node for node in tree.descendants if node.condition != None]
             if all([check_condition(node, node.condition) for node in condition_nodes]):
                 result = True
                 valid_trees.append(tree)
