@@ -35,30 +35,7 @@ class CFG:
         return {rule.right[0] for rule in self.terminal_rules()}
 
 
-class TreeNode:
-    def __init__(self, value) -> None:
-        self.value = value
-        self.children = []
-        self.parent = None
-        self.condition = None
 
-    def __repr__(self) -> str:
-        return repr(self.value)
-
-    def add_subtree(self, subtree, condition=None):
-        subtree.parent = self
-        subtree.condition = condition
-        self.children.append(subtree)
-
-    def print_tree(self):
-        print(self.value)
-        nodes = [self]
-        while len(nodes) > 0:
-            node_children = [node.children for node in nodes if len(node.children) > 0]
-            print(" ".join(map(repr, node_children)))
-            nodes = []
-            for children in node_children:
-                nodes += children
             
 
 
@@ -89,14 +66,6 @@ class TableEntry:
         children = [entry.get_tree(decoder) for entry in self.completing_entries]
         return AnyNode(children=children, tag=self.rule.left, condition=self.rule.condition)
     
-    def get_edges(self) -> list:
-        if len(self.completing_entries) == 0:
-            return []
-        result = []
-        for entry in self.completing_entries:
-            result += entry.get_edges()
-            result += [(self.rule.left, entry.rule.left, entry.rule.condition)]
-        return result
     
     def is_prediction(self, token):
         return self.rule.left == token and self.completion_idx == 0
@@ -142,11 +111,6 @@ class Table:
             return None
         return last_entry.completing_entries[0].get_tree(deocder)
     
-    def get_edges(self):
-        last_entry = self.get_last_entry()
-        if last_entry is None or last_entry.incomplete():
-            return None
-        return last_entry.completing_entries[0].get_edges()
     
     def get_trees(self, decoder=None):
         success_entries = self.get_success_entries()
